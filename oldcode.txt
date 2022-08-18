@@ -1,0 +1,413 @@
+from index.js
+
+const express = require("express");
+const cor = require("cors");
+const path = require("path");
+const router = require("./routes/router");
+
+const mongoose = require("mongoose");
+
+const app = express();
+const port = 5001;
+const data = require("./data");
+const bodyParser = require("body-parser");
+// const fileUpload = require('express-fileupload');
+
+app.use(
+  bodyParser.urlencoded({
+    extended: false,
+  })
+);
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, "./public")));
+
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
+  );
+  next();
+});
+app.use(cor());
+app.use(router);
+
+mongoose.connect(
+  "mongodb+srv://Seth:gregory123@homerentals.jerk7.mongodb.net/?retryWrites=true&w=majority",
+  {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  }
+);
+
+const db = mongoose.connection;
+db.on("error", console.error.bind(console, "connection error:"));
+db.once("open", function () {
+  // console.log("Connected");
+});
+
+app.get("/api/:id", (req, res) => {
+  const singleData = data.find((data) => data._id === req.params.id);
+  res.send(singleData);
+});
+
+app.listen(port, () => {
+  console.log(`Server started on port ${port}`);
+});
+app.get("/api/", (req, res) => {
+  res.send(data);
+});
+
+
+end index.js
+
+===========
+from router
+===========
+
+const router = require("express").Router();
+const hostel = require("../model/DataModel");
+const Admin = require("../model/User");
+const User = require("../model/booking");
+
+const multer = require("multer");
+var jwt = require("jsonwebtoken");
+
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "./public/images");
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.originalname);
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    filesize: 1024 * 1024,
+  },
+});
+
+router.route("/datalist").get((req, res) => {
+  hostel
+    .find()
+    .then((dat) => {
+      res.send(dat);
+    })
+
+    .catch((error) => console.log("error"));
+});
+
+router.route("/getbookusers").get((req, res) => {
+  User.find()
+    .then((dat) => {
+      res.send(dat);
+    })
+
+    .catch((error) => console.log("error"));
+});
+
+router.route("/upload").post(upload.array("hostel_image"), (req, res) => {
+  res.status(201).json({
+    msg: "Upload successful",
+  });
+});
+
+router.route("/add").post(upload.array("hostel_image"), (req, res) => {
+  const url = `${req.protocol}`;
+  const host = "localhost";
+  const port = 5000;
+
+  const Hostel = new hostel({
+    hostel_name: req.body.hostel_name,
+    price: req.body.price,
+    one_in_identity: req.body.one_in_identity,
+    four_in_identity: req.body.four_in_identity,
+    description: req.body.description,
+    account_number: req.body.account_number,
+    longitude: req.body.longitude,
+    latitude: req.body.latitude,
+    distance: req.body.distance,
+    merchant_id: req.body.merchant_id,
+    hostel_type: req.body.hostel_type,
+    bank_name: req.body.bank_name,
+    account_name: req.body.account_name,
+    hostel_image: req.body.hostel_image.map(
+      (name) => `${url}://${host}:${port}/images/${name}`
+    ),
+    map_area: req.body.map_area,
+  });
+  Hostel.save()
+    .then((result) => {})
+    .catch((err) => {
+      console.log(err);
+    });
+  res.status(201).json({
+    message: "Handling post request",
+    createdHostel: Hostel,
+  });
+});
+
+// Student booking
+router.route("/booking").post((req, res) => {
+  const IndexNumber = req.body.index_number;
+  User.findOne({ index_number: IndexNumber }).then((user) => {
+    if (user) {
+      return res.json({
+        msg: "User already exist",
+      });
+    } else {
+      const user = new User({
+        index_number: req.body.index_number,
+        full_name: req.body.full_name,
+        hostelName: req.body.hostel_name,
+        gender: req.body.gender,
+        level: req.body.level,
+        room_type: req.body.room_type,
+        room_code: req.body.room_number,
+        bed: req.body.bed,
+        hostel_type: req.body.hostel_type,
+        tel_number: req.body.tel_number,
+        date: req.body.date,
+      });
+
+      user
+        .save()
+        .then((result) => {
+          res.json({ result: "Data added successful" });
+        })
+        .catch((err) => console.log("User already exits"));
+    }
+  });
+});
+
+router.route("/check").post((req, res) => {
+  let validate = req.body.e;
+  User.findOne({ room_code: validate })
+    .then((result) =>
+      res.json({ msg: "The room has already been booked", result })
+    )
+    .catch((err) => err);
+});
+
+router.route("/check2").post((req, res) => {
+  let validate = req.body.e;
+  User.find({ room_code: validate })
+    .then((result) =>
+      res.json({ msg: "The room has already been booked", result })
+    )
+    .catch((err) => err);
+});
+
+router.route("/details/:id").get((req, res) => {
+  const id = req.params.id;
+  hostel
+    .findOne({
+      _id: id,
+    })
+    .then((result) => res.json(result))
+    .catch((err) => err);
+});
+
+router.route("/delete").post((req, res) => {
+  const id = req.body.id;
+  hostel
+    .deleteOne({
+      _id: id,
+    })
+    .exec()
+    .then((result) => {
+      res.send({
+        message: "Data removed",
+        result,
+      });
+    })
+    .catch((err) => err);
+});
+
+router.route("/update").post((req, res) => {
+  let id = req.body.id;
+
+  console.log(id);
+
+  let items = {
+    hostel_name: req.body.hostel_name,
+    price: req.body.price,
+    one_in_identity: req.body.one_in_identity,
+    four_in_identity: req.body.four_in_identity,
+    description: req.body.description,
+    distance: req.body.distance,
+    merchant_id: req.body.merchant_id,
+    hostel_type: req.body.hostel_type,
+  };
+  hostel.updateOne({ _id: id }, { $set: items }, (err, result) => {
+    console.log("dataUpdated");
+    res.send(result);
+  });
+});
+
+// User Authentication
+
+router.route("/signup").post((req, res) => {
+  Admin.find({
+    email: req.body.email,
+  })
+    .exec()
+    .then((result) => {
+      if (result.length >= 1) {
+        return res.status(409).json({
+          msg: "User with that email already exist",
+        });
+      } else {
+        bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
+          const admin = new Admin({
+            admin_name: req.body.admin_name,
+            email: req.body.email,
+            password: hash,
+          });
+          admin
+            .save()
+            .then((result) => {
+              res.send({
+                msg: "User added",
+                result,
+              });
+            })
+            .catch((err) => err);
+        });
+      }
+    })
+    .catch();
+});
+
+router.route("/adminlogin").post((req, res) => {
+  Admin.find({
+    email: req.body.email,
+  })
+    .exec()
+    .then((user) => {
+      if (user.length < 1) {
+        res.status(401).json({
+          msg: "Data  not found",
+        });
+      } else {
+        bcrypt.compare(
+          req.body.password,
+          user[0].password,
+          function (err, resu) {
+            if (resu) {
+              let token = jwt.sign(
+                {
+                  name: user[0].admin_name,
+                  email: user[0].email,
+                },
+                process.env.JWT_KEY,
+                {
+                  expiresIn: "1h",
+                }
+              );
+
+              res.status(201).json({
+                msg: "Admin",
+                token: token,
+              });
+            } else {
+              res.status(401).json({
+                msg: "Did not match",
+              });
+            }
+          }
+        );
+      }
+    })
+    .catch((err) => err);
+});
+
+router.route("/studentSignup").post((req, res) => {
+  Student.find({
+    email: req.body.index_number,
+  })
+    .exec()
+    .then((result) => {
+      if (result.length >= 1) {
+        return res.status(409).json({
+          msg: "User with that email already exist",
+        });
+      } else {
+        bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
+          const student = new Student({
+            f_name: req.body.f_name,
+            l_name: req.body.l_name,
+            email: req.body.email,
+            index_number: req.body.index_number,
+            password: hash,
+            gender: req.body.gender,
+            level: req.body.level,
+            date: req.body.date,
+          });
+          student
+            .save()
+            .then((result) => {
+              res.send({
+                msg: "student added",
+                result,
+              });
+            })
+            .catch((err) => err);
+        });
+      }
+    })
+    .catch();
+});
+
+router.route("/studentlogin").post((req, res) => {
+  Student.find({
+    index_number: req.body.index_number,
+  })
+    .exec()
+    .then((user) => {
+      if (user.length < 1) {
+        res.status(401).json({
+          msg: "Data  not found",
+        });
+      } else {
+        bcrypt.compare(
+          req.body.password,
+          user[0].password,
+          function (err, resu) {
+            if (resu) {
+              let token = jwt.sign(
+                {
+                  name: user[0].index_number,
+                },
+                process.env.JWT_KEY,
+                {
+                  expiresIn: "1h",
+                }
+              );
+
+              res.status(201).json({
+                token: token,
+                fullname: `${user[0].f_name} ${user[0].l_name}`,
+                index_number: user[0].index_number,
+                gender: user[0].gender,
+                level: user[0].level,
+              });
+            } else {
+              res.status(401).json({
+                msg: "Did not match",
+              });
+            }
+          }
+        );
+      }
+    })
+    .catch((err) => err);
+});
+
+module.exports = router;
+

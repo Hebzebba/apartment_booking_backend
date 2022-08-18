@@ -1,0 +1,127 @@
+const multer = require("multer");
+const fs = require("fs");
+const Advertisement = require("../model/Advertisement.js");
+
+// SetUp image upload logic
+const DIR = "./public/";
+if (!fs.existsSync(DIR)) {
+  fs.mkdirSync(DIR);
+}
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, DIR);
+  },
+  filename: (req, file, cb) => {
+    const fileName = file.originalname.toLowerCase().split(" ").join("-");
+    cb(null, "-" + fileName);
+  },
+});
+
+let upload = multer({
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    if (
+      file.mimetype == "image/png" ||
+      file.mimetype == "image/jpg" ||
+      file.mimetype == "image/jpeg"
+    ) {
+      cb(null, true);
+    } else {
+      cb(null, false);
+      return cb(new Error("Only .png, .jpg and .jpeg format allowed!"));
+    }
+  },
+});
+
+exports.UploadImage = upload.array("file", 6);
+
+// Image upload logics ends
+exports.upload = async (req, res, next) => {
+  try {
+    // console.log(`this is from request ${req.files}`);
+    console.log(req.body.file);
+  } catch (error) {
+    console.log(`this is from ${error}`);
+  }
+};
+
+exports.postAds = async (req, res, next) => {
+  // try {
+  //   const {
+  //     email,
+  //     category,
+  //     longitude,
+  //     latitude,
+  //     price,
+  //     location,
+  //     number_of_rooms,
+  //     number_of_bath_rooms,
+  //     distance,
+  //     description,
+  //   } = req.body;
+  //   const user = await User.findOne({ email });
+  //   const { name: userName, contact } = user;
+  //   const ads = new Advertisement({
+  //     user: { email, userName, contact },
+  //     category,
+  //     room_info: {
+  //       price,
+  //       location,
+  //       number_of_rooms,
+  //       number_of_bath_rooms,
+  //       distance,
+  //       description,
+  //     },
+  //     coordinate: { longitude, latitude },
+  //   });
+  //   await ads.save();
+  //   res.send(JSON.stringify({ message: "Ads posted successful" }));
+  // } catch (error) {
+  //   // next(error);
+  //   console.log(error);
+  // }
+};
+
+exports.updateAds = async (req, res, next) => {
+  try {
+    const id = req.query.id;
+    const {
+      category,
+      price,
+      location,
+      number_of_rooms,
+      number_of_bath_rooms,
+      distance,
+      longitude,
+      latitude,
+    } = req.query;
+    await Advertisement.findByIdAndUpdate(
+      { _id: id },
+      {
+        $set: {
+          category: category,
+          "room_info.price": price,
+          "room_info.location": location,
+          "room_info.number_of_rooms": number_of_rooms,
+          "room_info.number_of_bath_rooms": number_of_bath_rooms,
+          "room_info.distance": distance,
+          "coordinate.latitude": longitude,
+          "coordinate.latitude": latitude,
+        },
+      }
+    );
+    res.send(JSON.stringify({ message: "Ads updated" }));
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteAds = async (req, res, next) => {
+  try {
+    const id = req.query.id;
+    await Advertisement.findByIdAndDelete({ _id: id });
+    res.send(JSON.stringify({ message: "Ads deleted" }));
+  } catch (error) {
+    next({ ...error, message: "Ads not found" });
+  }
+};
