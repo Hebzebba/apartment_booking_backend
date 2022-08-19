@@ -31,12 +31,12 @@ let upload = multer({
 })
 
 exports.imageUpload = upload.array('file', 6)
-
+let protocol = 'https'
 exports.postAds = async (req, res, next) => {
   try {
     const { email, category, longitude, latitude, price, location, number_of_rooms, number_of_bath_rooms, distance, description } = req.body
     const reqFiles = []
-    const url = req.protocol + '://' + req.get('host')
+    const url = protocol + '://' + req.get('host')
 
     if (req.files.length > 0) {
       req.files.map((file) => {
